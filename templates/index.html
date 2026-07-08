@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Audiobook Creator</title>
+  <style>
+    :root {
+      --bg: #0f1220;
+      --card: #1a1f35;
+      --card-2: #232a45;
+      --line: #333c5e;
+      --text: #e8ebf7;
+      --muted: #99a2c4;
+      --accent: #6c8cff;
+      --accent-2: #8a6cff;
+      --danger: #ff6b81;
+      --ok: #4ecb8d;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      color: var(--text);
+      background: radial-gradient(1200px 600px at 50% -10%, #202748 0%, var(--bg) 60%);
+      display: flex;
+      justify-content: center;
+      padding: 40px 16px;
+    }
+    .wrap { width: 100%; max-width: 640px; }
+    header { text-align: center; margin-bottom: 24px; }
+    h1 { margin: 0 0 6px; font-size: 28px; letter-spacing: -0.5px; }
+    .sub { color: var(--muted); font-size: 14px; margin: 0; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 22px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+    }
+    .drop {
+      border: 2px dashed var(--line);
+      border-radius: 12px;
+      padding: 28px 18px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .15s, background .15s, transform .05s;
+      background: var(--card-2);
+    }
+    .drop:hover { border-color: var(--accent); }
+    .drop.drag { border-color: var(--accent); background: #263056; transform: scale(1.01); }
+    .drop .icon { font-size: 34px; }
+    .drop .main { margin: 8px 0 2px; font-weight: 600; }
+    .drop .hint { color: var(--muted); font-size: 12.5px; }
+    .chip {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      margin-top: 12px;
+      padding: 10px 12px;
+      background: #2a335a;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      font-size: 14px;
+    }
+    .chip.show { display: flex; }
+    .chip .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .chip button {
+      background: transparent; border: none; color: var(--muted);
+      font-size: 18px; cursor: pointer; line-height: 1;
+    }
+    .chip button:hover { color: var(--danger); }
+    .divider { display: flex; align-items: center; gap: 12px; color: var(--muted); margin: 18px 0; font-size: 12px; }
+    .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+    textarea {
+      width: 100%; min-height: 120px; resize: vertical;
+      background: var(--card-2); color: var(--text);
+      border: 1px solid var(--line); border-radius: 10px;
+      padding: 12px 14px; font-size: 14px; font-family: inherit;
+    }
+    textarea:focus, select:focus, input:focus { outline: none; border-color: var(--accent); }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 18px; }
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    .field.full { grid-column: 1 / -1; }
+    label { font-size: 12.5px; color: var(--muted); }
+    select, input[type=text] {
+      background: var(--card-2); color: var(--text);
+      border: 1px solid var(--line); border-radius: 10px;
+      padding: 10px 12px; font-size: 14px; font-family: inherit;
+    }
+    .btn {
+      width: 100%; margin-top: 20px; padding: 14px;
+      border: none; border-radius: 12px; cursor: pointer;
+      font-size: 15px; font-weight: 700; color: #fff;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      transition: opacity .15s, transform .05s;
+    }
+    .btn:hover { opacity: .93; }
+    .btn:active { transform: translateY(1px); }
+    .btn:disabled { opacity: .55; cursor: default; }
+    .status { margin-top: 16px; font-size: 13.5px; min-height: 18px; white-space: pre-wrap; }
+    .status.err { color: var(--danger); }
+    .status.ok { color: var(--ok); }
+    .spinner {
+      display: inline-block; width: 14px; height: 14px; margin-right: 8px;
+      border: 2px solid rgba(255,255,255,.4); border-top-color: #fff;
+      border-radius: 50%; animation: spin .7s linear infinite; vertical-align: -2px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .result { display: none; margin-top: 18px; padding: 16px; background: var(--card-2); border: 1px solid var(--line); border-radius: 12px; }
+    .result.show { display: block; }
+    .result audio { width: 100%; margin-bottom: 12px; }
+    .download {
+      display: inline-block; text-decoration: none; color: #fff; font-weight: 600; font-size: 14px;
+      background: var(--ok); padding: 10px 16px; border-radius: 10px;
+    }
+    .foot { text-align: center; color: var(--muted); font-size: 12px; margin-top: 18px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>🎧 Audiobook Creator</h1>
+      <p class="sub">Paste text or drop a PDF / TXT file and get an audio file back.</p>
+    </header>
+
+    <div class="card">
+      <div id="drop" class="drop">
+        <div class="icon">📄</div>
+        <div class="main">Drag &amp; drop a PDF or TXT file</div>
+        <div class="hint">or click to browse</div>
+      </div>
+      <input id="fileInput" type="file" accept=".pdf,.txt" hidden />
+
+      <div id="chip" class="chip">
+        <span>📎</span>
+        <span class="name" id="chipName"></span>
+        <button id="chipRemove" title="Remove file">&times;</button>
+      </div>
+
+      <div class="divider">or paste text</div>
+
+      <textarea id="text" placeholder="Paste the text you want turned into audio…"></textarea>
+
+      <div class="grid">
+        <div class="field">
+          <label for="engine">Voice engine</label>
+          <select id="engine">
+            <option value="pyttsx3" selected>Offline — no internet needed</option>
+            <option value="gtts">Online — nicer voice (needs internet + ffmpeg)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="lang">Language <span style="opacity:.7">(online only)</span></label>
+          <select id="lang">
+            <option value="en" selected>English</option>
+            <option value="en-uk">English (UK)</option>
+            <option value="es">Spanish</option>
+            <option value="fr">French</option>
+            <option value="de">German</option>
+            <option value="it">Italian</option>
+            <option value="pt">Portuguese</option>
+            <option value="nl">Dutch</option>
+            <option value="hi">Hindi</option>
+            <option value="ja">Japanese</option>
+            <option value="ko">Korean</option>
+            <option value="zh-CN">Chinese</option>
+          </select>
+        </div>
+        <div class="field full">
+          <label for="filename">Output file name</label>
+          <input id="filename" type="text" value="audiobook" />
+        </div>
+      </div>
+
+      <button id="convert" class="btn">Create audiobook</button>
+
+      <div id="status" class="status"></div>
+
+      <div id="result" class="result">
+        <audio id="player" controls></audio>
+        <a id="download" class="download" download>⬇ Download audio file</a>
+      </div>
+    </div>
+
+    <p class="foot">Runs locally on your machine. Long books can take a while to synthesize.</p>
+  </div>
+
+  <script>
+    const drop = document.getElementById('drop');
+    const fileInput = document.getElementById('fileInput');
+    const chip = document.getElementById('chip');
+    const chipName = document.getElementById('chipName');
+    const chipRemove = document.getElementById('chipRemove');
+    const textEl = document.getElementById('text');
+    const engineEl = document.getElementById('engine');
+    const langEl = document.getElementById('lang');
+    const filenameEl = document.getElementById('filename');
+    const convertBtn = document.getElementById('convert');
+    const statusEl = document.getElementById('status');
+    const resultEl = document.getElementById('result');
+    const playerEl = document.getElementById('player');
+    const downloadEl = document.getElementById('download');
+
+    let currentFile = null;
+    const ALLOWED = ['.pdf', '.txt'];
+
+    function ext(name) { return name.slice(name.lastIndexOf('.')).toLowerCase(); }
+
+    function setFile(file) {
+      if (!file) return;
+      if (!ALLOWED.includes(ext(file.name))) {
+        showError('Only PDF and TXT files are supported.');
+        return;
+      }
+      currentFile = file;
+      chipName.textContent = file.name;
+      chip.classList.add('show');
+      clearStatus();
+    }
+
+    function clearFile() {
+      currentFile = null;
+      fileInput.value = '';
+      chip.classList.remove('show');
+    }
+
+    function showError(msg) {
+      statusEl.textContent = msg;
+      statusEl.className = 'status err';
+    }
+    function clearStatus() { statusEl.textContent = ''; statusEl.className = 'status'; }
+
+    // --- file picking ---
+    drop.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', (e) => setFile(e.target.files[0]));
+    chipRemove.addEventListener('click', (e) => { e.stopPropagation(); clearFile(); });
+
+    // --- drag & drop ---
+    ['dragenter', 'dragover'].forEach(ev =>
+      drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add('drag'); }));
+    ['dragleave', 'dragend', 'drop'].forEach(ev =>
+      drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove('drag'); }));
+    drop.addEventListener('drop', (e) => {
+      const f = e.dataTransfer.files && e.dataTransfer.files[0];
+      if (f) setFile(f);
+    });
+
+    // --- convert ---
+    convertBtn.addEventListener('click', async () => {
+      clearStatus();
+      resultEl.classList.remove('show');
+
+      const text = textEl.value.trim();
+      if (!currentFile && !text) {
+        showError('Paste some text or add a PDF/TXT file first.');
+        return;
+      }
+
+      const fd = new FormData();
+      fd.append('engine', engineEl.value);
+      fd.append('lang', langEl.value);
+      fd.append('filename', filenameEl.value || 'audiobook');
+      if (currentFile) fd.append('file', currentFile);
+      else fd.append('text', text);
+
+      convertBtn.disabled = true;
+      const label = convertBtn.textContent;
+      convertBtn.innerHTML = '<span class="spinner"></span>Synthesizing…';
+      statusEl.textContent = 'Working on it — this can take a while for long text.';
+      statusEl.className = 'status';
+
+      try {
+        const res = await fetch('/convert', { method: 'POST', body: fd });
+        const ct = res.headers.get('content-type') || '';
+
+        if (ct.includes('application/json')) {
+          const data = await res.json();
+          throw new Error(data.error || 'Conversion failed.');
+        }
+        if (!res.ok) throw new Error('Conversion failed (HTTP ' + res.status + ').');
+
+        // Figure out the download filename from the response, with a fallback.
+        let fname = (filenameEl.value || 'audiobook');
+        const cd = res.headers.get('content-disposition') || '';
+        const m = cd.match(/filename\*?=(?:UTF-8'')?"?([^"';]+)"?/i);
+        if (m) fname = decodeURIComponent(m[1]);
+
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        playerEl.src = url;
+        downloadEl.href = url;
+        downloadEl.setAttribute('download', fname);
+        resultEl.classList.add('show');
+        statusEl.textContent = '✓ Done: ' + fname;
+        statusEl.className = 'status ok';
+
+        // Auto-trigger the download too.
+        downloadEl.click();
+      } catch (err) {
+        showError(err.message || String(err));
+      } finally {
+        convertBtn.disabled = false;
+        convertBtn.textContent = label;
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,109 +1,86 @@
-#!/usr/bin/env python3
-"""Convert PDF and TXT files into audiobooks (MP3)."""
+# pdf2audiobook
 
-import argparse
-import os
-import re
-import sys
+Convert PDF and TXT files — or text you paste in — into audiobooks.
+Comes with a **basic web UI** and a command-line tool.
 
+## Features
 
-def extract_text_from_pdf(path):
-    from pypdf import PdfReader
-    reader = PdfReader(path)
-    return "\n".join((page.extract_text() or "") for page in reader.pages)
+- 🎧 **Web UI**: paste text or drag & drop a `.pdf` / `.txt` file, click a button, download the audio
+- Reads `.pdf` and `.txt` files, or raw pasted text
+- Cleans extracted text (de-hyphenation, whitespace normalization)
+- Two TTS engines:
+  - **Offline** (`pyttsx3`) — uses your system voices, no internet, no ffmpeg. Outputs WAV.
+  - **Online** (`gtts`) — Google TTS, more natural voice. Needs internet **and** ffmpeg. Outputs MP3.
+- Chunks long text automatically
 
+## Quick start (Web UI)
 
-def extract_text_from_txt(path):
-    with open(path, "r", encoding="utf-8", errors="ignore") as f:
-        return f.read()
+### Windows
 
+Double-click **`run.bat`**. On the first run it creates a virtual environment,
+installs the dependencies, and opens the app at <http://127.0.0.1:5000>.
 
-def clean_text(text):
-    text = re.sub(r"-\n(\w)", r"\1", text)      # de-hyphenate line breaks
-    text = re.sub(r"\s*\n\s*", " ", text)         # collapse newlines
-    text = re.sub(r"\s{2,}", " ", text)           # collapse spaces
-    return text.strip()
+> Requires Python 3. If you don't have it, install it from
+> <https://www.python.org/downloads/> and tick **"Add Python to PATH"** during setup.
 
+### macOS / Linux (or manual)
 
-def chunk_text(text, size=4500):
-    words, chunks, cur = text.split(), [], ""
-    for w in words:
-        if len(cur) + len(w) + 1 > size:
-            chunks.append(cur)
-            cur = w
-        else:
-            cur = f"{cur} {w}".strip()
-    if cur:
-        chunks.append(cur)
-    return chunks
+```bash
+python -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+python app.py
+```
 
+Then open <http://127.0.0.1:5000>.
 
-def synthesize(text, out_path, engine="gtts", lang="en", voice=None, rate=175):
-    if engine == "gtts":
-        from gtts import gTTS
-        from pydub import AudioSegment
-        parts = []
-        for i, chunk in enumerate(chunk_text(text)):
-            tmp = f"{out_path}.part{i}.mp3"
-            gTTS(text=chunk, lang=lang).save(tmp)
-            parts.append(tmp)
-        combined = AudioSegment.empty()
-        for p in parts:
-            combined += AudioSegment.from_mp3(p)
-            os.remove(p)
-        combined.export(out_path, format="mp3")
-    elif engine == "pyttsx3":
-        import pyttsx3
-        eng = pyttsx3.init()
-        eng.setProperty("rate", rate)
-        if voice:
-            eng.setProperty("voice", voice)
-        eng.save_to_file(text, out_path)
-        eng.runAndWait()
-    else:
-        raise ValueError(f"Unknown engine: {engine}")
+In the UI: drop a file **or** paste text, pick the voice engine, and click
+**Create audiobook**. The file downloads automatically and also plays inline.
 
+## Command-line usage
 
-def convert(input_path, output_path=None, engine="gtts", lang="en", voice=None, rate=175):
-    ext = os.path.splitext(input_path)[1].lower()
-    if ext == ".pdf":
-        raw = extract_text_from_pdf(input_path)
-    elif ext == ".txt":
-        raw = extract_text_from_txt(input_path)
-    else:
-        raise ValueError(f"Unsupported file type: {ext}")
+```bash
+# Offline engine (no internet / ffmpeg needed)
+python src/pdf2audiobook.py book.pdf -e pyttsx3 -o book.wav
 
-    text = clean_text(raw)
-    if not text:
-        raise ValueError("No extractable text found.")
+# Online engine, Google TTS
+python src/pdf2audiobook.py book.pdf
 
-    if output_path is None:
-        output_path = os.path.splitext(input_path)[0] + ".mp3"
+# Plain text file, explicit output
+python src/pdf2audiobook.py notes.txt -o notes.mp3
 
-    synthesize(text, output_path, engine=engine, lang=lang, voice=voice, rate=rate)
-    return output_path
+# Another language (online engine)
+python src/pdf2audiobook.py libro.pdf -l es
+```
 
+## Options (CLI)
 
-def main():
-    p = argparse.ArgumentParser(description="Convert PDF/TXT files into audiobooks.")
-    p.add_argument("input", help="Path to a .pdf or .txt file")
-    p.add_argument("-o", "--output", help="Output MP3 path")
-    p.add_argument("-e", "--engine", choices=["gtts", "pyttsx3"], default="gtts",
-                   help="TTS engine (gtts=online, pyttsx3=offline)")
-    p.add_argument("-l", "--lang", default="en", help="Language code (gtts only)")
-    p.add_argument("-v", "--voice", help="Voice id (pyttsx3 only)")
-    p.add_argument("-r", "--rate", type=int, default=175, help="Speech rate (pyttsx3 only)")
-    args = p.parse_args()
+| Flag | Description |
+|------|-------------|
+| `-o, --output` | Output audio path (default: same name as input) |
+| `-e, --engine` | `gtts` (default) or `pyttsx3` |
+| `-l, --lang` | Language code, gtts only (default `en`) |
+| `-v, --voice` | Voice id, pyttsx3 only |
+| `-r, --rate` | Speech rate, pyttsx3 only (default 175) |
 
-    if not os.path.isfile(args.input):
-        sys.exit(f"Error: file not found: {args.input}")
+## Notes
 
-    try:
-        out = convert(args.input, args.output, args.engine, args.lang, args.voice, args.rate)
-        print(f"Audiobook written to: {out}")
-    except Exception as e:
-        sys.exit(f"Error: {e}")
+- The **Online (gtts)** engine stitches audio chunks with
+  [ffmpeg](https://ffmpeg.org/) via pydub, so ffmpeg must be on your PATH.
+  The **Offline (pyttsx3)** engine has no such requirement.
+- Scanned PDFs (images with no selectable text) can't be converted — there's no
+  text to extract. Run OCR on them first.
 
+## Project layout
 
-if __name__ == "__main__":
-    main()
+```
+app.py                 Flask web server (the UI backend)
+templates/index.html   The web UI (drag & drop + paste)
+src/pdf2audiobook.py   Core converter, also usable from the command line
+requirements.txt       Python dependencies
+run.bat                One-click launcher for Windows
+```
+
+## License
+
+MIT

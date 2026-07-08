@@ -11,6 +11,8 @@ Comes with a **basic web UI** and a command-line tool.
 - Two TTS engines:
   - **Offline** (`pyttsx3`) — uses your system voices, no internet, no ffmpeg. Outputs WAV.
   - **Online** (`gtts`) — Google TTS, more natural voice. Needs an internet connection. Outputs MP3.
+- 🔎 **Find books**: search public-domain catalogs (Project Gutenberg + Internet Archive) and download a book straight into the converter
+- ☁️ **Google Drive** (optional): auto-upload the finished audiobook to your Drive
 - Chunks long text automatically
 
 ## Quick start (Web UI)
@@ -45,6 +47,43 @@ Then open <http://127.0.0.1:5000>.
 
 In the UI: drop a file **or** paste text, pick the voice engine, and click
 **Create audiobook**. The file downloads automatically and also plays inline.
+
+## Find books (public domain)
+
+The **🔎 Find a book** panel searches two free, legal catalogs and downloads a
+book straight into the converter:
+
+- **Project Gutenberg** (via the Gutendex API) — tens of thousands of books as
+  clean plain text, the best source for natural-sounding narration.
+- **Internet Archive** — scanned-book PDFs and full text of public-domain works.
+
+Type a title or author, click **Search**, then **Use** on a result. The book
+downloads locally and loads into the converter — pick a voice and click **Create
+audiobook** as usual. Only public-domain / freely downloadable items are offered
+(lending-only Internet Archive items are filtered out). No piracy/shadow-library
+sites are used.
+
+## Google Drive setup (optional)
+
+To auto-upload finished audiobooks to your Drive, give the app its own Google
+OAuth credentials once. Nothing is typed into the app — you approve access on
+Google's own sign-in page:
+
+1. Open the [Google Cloud Console](https://console.cloud.google.com/) and create a
+   project (or select an existing one).
+2. **Enable the Google Drive API** (APIs & Services → Library → *Google Drive API* → Enable).
+3. **APIs & Services → Credentials → Create credentials → OAuth client ID.**
+   If prompted, configure the consent screen (User type: *External*; add your own
+   Google account under **Test users**).
+4. Choose application type **Desktop app**, create it, and **Download JSON**.
+5. Save that file as **`client_secret.json`** in the project folder (next to `app.py`).
+6. Restart the app, click **Connect** in the Google Drive box, and approve access.
+   Tick **"Upload the audiobook to Drive after converting"** — your audiobooks then
+   land in an **Audiobooks** folder in your Drive.
+
+The app requests only the `drive.file` scope, so it can see and manage **only the
+files it creates**, never anything else in your Drive. `client_secret.json` and the
+generated `token.json` are gitignored and never leave your machine.
 
 ## Command-line usage
 
@@ -87,8 +126,10 @@ python src/pdf2audiobook.py libro.pdf -l es
 
 ```
 app.py                 Flask web server (the UI backend)
-templates/index.html   The web UI (drag & drop + paste)
+templates/index.html   The web UI (search · drag & drop · paste)
 src/pdf2audiobook.py   Core converter, also usable from the command line
+src/book_search.py     Book search + download (Gutenberg + Internet Archive)
+src/drive.py           Optional Google Drive upload (OAuth)
 requirements.txt       Python dependencies
 run.bat                One-click launcher for Windows
 run.sh                 One-click launcher for macOS / Linux

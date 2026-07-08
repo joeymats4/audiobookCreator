@@ -7,3 +7,8 @@ venv/
 # Generated audio
 *.mp3
 *.wav
+
+# Secrets & working files (book downloads, Google OAuth)
+client_secret.json
+token.json
+downloads/

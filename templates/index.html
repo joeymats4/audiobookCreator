@@ -116,6 +116,35 @@
       background: var(--ok); padding: 10px 16px; border-radius: 10px;
     }
     .foot { text-align: center; color: var(--muted); font-size: 12px; margin-top: 18px; }
+
+    /* --- book search --- */
+    .section-head { font-size: 16px; font-weight: 700; margin-bottom: 14px; }
+    .muted-note { font-size: 11.5px; color: var(--muted); font-weight: 500; margin-left: 6px; }
+    .searchbar { display: flex; gap: 10px; }
+    .searchbar input { flex: 1; }
+    .btn.inline { width: auto; margin-top: 0; padding: 12px 20px; }
+    .results { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; max-height: 340px; overflow-y: auto; }
+    .book { display: flex; align-items: center; gap: 12px; padding: 10px 12px; background: var(--card-2); border: 1px solid var(--line); border-radius: 10px; }
+    .book-info { flex: 1; min-width: 0; }
+    .book-title { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .book-meta { font-size: 12px; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .badge { display: inline-block; font-size: 10.5px; font-weight: 700; padding: 1px 7px; border-radius: 20px; margin-right: 6px; text-transform: uppercase; letter-spacing: .4px; }
+    .badge.gutenberg { background: #2e5d3a; color: #bff0cd; }
+    .badge.archive { background: #5a3d6b; color: #e6cbff; }
+    .book-use { flex: none; background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: 8px 14px; font-size: 13px; font-weight: 600; cursor: pointer; }
+    .book-use:hover { opacity: .9; }
+    .book-use:disabled { opacity: .5; cursor: default; }
+
+    /* --- google drive --- */
+    .drive { margin-top: 18px; padding: 12px 14px; background: var(--card-2); border: 1px solid var(--line); border-radius: 10px; }
+    .drive-head { display: flex; justify-content: space-between; align-items: center; font-size: 13.5px; font-weight: 600; }
+    .btn-link { background: transparent; border: 1px solid var(--line); color: var(--accent); border-radius: 8px; padding: 6px 12px; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+    .btn-link:hover { border-color: var(--accent); }
+    .btn-link:disabled { opacity: .5; cursor: default; }
+    .drive-status { font-size: 12px; color: var(--muted); margin-top: 6px; }
+    .drive-check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text); margin-top: 10px; }
+    .drive-check.disabled { opacity: .45; }
+    .drive-link { display: inline-block; margin-left: 12px; color: var(--accent); font-size: 13px; text-decoration: none; font-weight: 600; }
   </style>
 </head>
 <body>
@@ -125,7 +154,17 @@
       <p class="sub">Paste text or drop a PDF / TXT file and get an audio file back.</p>
     </header>
 
-    <div class="card">
+    <div class="card" style="margin-bottom: 18px;">
+      <div class="section-head">🔎 Find a book <span class="muted-note">public-domain · free &amp; legal</span></div>
+      <div class="searchbar">
+        <input id="searchInput" type="text" placeholder="Search by title or author… e.g. Frankenstein" />
+        <button id="searchBtn" class="btn inline">Search</button>
+      </div>
+      <div id="searchStatus" class="status"></div>
+      <div id="results" class="results"></div>
+    </div>
+
+    <div class="card" id="converter">
       <div id="drop" class="drop">
         <div class="icon">📄</div>
         <div class="main">Drag &amp; drop a PDF or TXT file</div>
@@ -174,6 +213,17 @@
         </div>
       </div>
 
+      <div class="drive" id="drivePanel">
+        <div class="drive-head">
+          <span>☁️ Google Drive</span>
+          <button id="driveBtn" class="btn-link" type="button">Connect</button>
+        </div>
+        <div id="driveStatusText" class="drive-status">Checking…</div>
+        <label class="drive-check disabled" id="driveCheckWrap">
+          <input type="checkbox" id="driveUpload" disabled /> Upload the audiobook to Drive after converting
+        </label>
+      </div>
+
       <button id="convert" class="btn">Create audiobook</button>
 
       <div id="status" class="status"></div>
@@ -181,6 +231,7 @@
       <div id="result" class="result">
         <audio id="player" controls></audio>
         <a id="download" class="download" download>⬇ Download audio file</a>
+        <a id="driveLink" class="drive-link" href="#" target="_blank" rel="noopener" style="display:none;">☁ View in Google Drive</a>
       </div>
     </div>
 
@@ -202,8 +253,19 @@
     const resultEl = document.getElementById('result');
     const playerEl = document.getElementById('player');
     const downloadEl = document.getElementById('download');
+    const searchInput = document.getElementById('searchInput');
+    const searchBtn = document.getElementById('searchBtn');
+    const searchStatus = document.getElementById('searchStatus');
+    const resultsEl = document.getElementById('results');
+    const converterEl = document.getElementById('converter');
+    const driveBtn = document.getElementById('driveBtn');
+    const driveStatusText = document.getElementById('driveStatusText');
+    const driveCheckWrap = document.getElementById('driveCheckWrap');
+    const driveUploadEl = document.getElementById('driveUpload');
+    const driveLinkEl = document.getElementById('driveLink');
 
     let currentFile = null;
+    let currentBookFile = null;
     const ALLOWED = ['.pdf', '.txt'];
 
     function ext(name) { return name.slice(name.lastIndexOf('.')).toLowerCase(); }
@@ -215,6 +277,7 @@
         return;
       }
       currentFile = file;
+      currentBookFile = null;
       chipName.textContent = file.name;
       chip.classList.add('show');
       clearStatus();
@@ -222,6 +285,7 @@
 
     function clearFile() {
       currentFile = null;
+      currentBookFile = null;
       fileInput.value = '';
       chip.classList.remove('show');
     }
@@ -247,14 +311,162 @@
       if (f) setFile(f);
     });
 
+    // --- book search ---
+    function sanitizeName(s) {
+      return (s || 'audiobook').replace(/[^\w \-]+/g, '').replace(/\s+/g, ' ').trim().slice(0, 80) || 'audiobook';
+    }
+
+    function loadBook(filename, title) {
+      currentFile = null;
+      fileInput.value = '';
+      currentBookFile = filename;
+      chipName.textContent = title + '  (from search)';
+      chip.classList.add('show');
+      filenameEl.value = sanitizeName(title);
+      clearStatus();
+      converterEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    async function doSearch() {
+      const q = searchInput.value.trim();
+      if (!q) return;
+      resultsEl.innerHTML = '';
+      searchStatus.textContent = 'Searching…';
+      searchStatus.className = 'status';
+      searchBtn.disabled = true;
+      try {
+        const res = await fetch('/search?q=' + encodeURIComponent(q));
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Search failed.');
+        renderResults(data.results || []);
+        if (!(data.results || []).length) searchStatus.textContent = 'No public-domain matches found.';
+      } catch (err) {
+        searchStatus.textContent = err.message || String(err);
+        searchStatus.className = 'status err';
+      } finally {
+        searchBtn.disabled = false;
+      }
+    }
+
+    function renderResults(list) {
+      resultsEl.innerHTML = '';
+      for (const r of list) {
+        const row = document.createElement('div');
+        row.className = 'book';
+
+        const info = document.createElement('div');
+        info.className = 'book-info';
+        const t = document.createElement('div');
+        t.className = 'book-title';
+        t.textContent = r.title || '(untitled)';
+        const meta = document.createElement('div');
+        meta.className = 'book-meta';
+        const badge = document.createElement('span');
+        badge.className = 'badge ' + (r.source === 'gutenberg' ? 'gutenberg' : 'archive');
+        badge.textContent = r.source === 'gutenberg' ? 'Gutenberg' : 'Archive';
+        meta.appendChild(badge);
+        const bits = [];
+        if (r.author) bits.push(r.author);
+        if (r.year) bits.push(r.year);
+        bits.push(r.kind === 'pdf' ? 'PDF' : 'Text');
+        meta.appendChild(document.createTextNode(bits.join(' · ')));
+        info.appendChild(t);
+        info.appendChild(meta);
+
+        const btn = document.createElement('button');
+        btn.className = 'book-use';
+        btn.textContent = 'Use';
+        btn.addEventListener('click', () => useBook(r, btn));
+
+        row.appendChild(info);
+        row.appendChild(btn);
+        resultsEl.appendChild(row);
+      }
+    }
+
+    async function useBook(r, btn) {
+      btn.disabled = true;
+      const label = btn.textContent;
+      btn.textContent = 'Downloading…';
+      searchStatus.textContent = '';
+      searchStatus.className = 'status';
+      try {
+        const fd = new FormData();
+        fd.append('source', r.source);
+        fd.append('id', r.id);
+        const res = await fetch('/fetch', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Download failed.');
+        loadBook(data.filename, r.title || 'book');
+      } catch (err) {
+        searchStatus.textContent = err.message || String(err);
+        searchStatus.className = 'status err';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = label;
+      }
+    }
+
+    searchBtn.addEventListener('click', doSearch);
+    searchInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') doSearch(); });
+
+    // --- google drive ---
+    let driveConnected = false;
+
+    async function refreshDriveStatus() {
+      try {
+        const res = await fetch('/drive/status');
+        const s = await res.json();
+        driveConnected = !!s.connected;
+        if (!s.configured) {
+          driveStatusText.textContent = 'Not set up — add client_secret.json to enable (see README).';
+          driveBtn.style.display = 'none';
+        } else if (!s.connected) {
+          driveStatusText.textContent = 'Not connected.';
+          driveBtn.style.display = '';
+          driveBtn.textContent = 'Connect';
+        } else {
+          driveStatusText.textContent = 'Connected ✓';
+          driveBtn.style.display = '';
+          driveBtn.textContent = 'Disconnect';
+        }
+        driveUploadEl.disabled = !s.connected;
+        driveCheckWrap.classList.toggle('disabled', !s.connected);
+        if (!s.connected) driveUploadEl.checked = false;
+      } catch (err) {
+        driveStatusText.textContent = 'Drive status unavailable.';
+      }
+    }
+
+    driveBtn.addEventListener('click', async () => {
+      driveBtn.disabled = true;
+      const wasConnected = driveConnected;
+      driveStatusText.textContent = wasConnected
+        ? 'Disconnecting…'
+        : 'Opening Google sign-in in your browser — approve there, then come back…';
+      try {
+        const res = await fetch(wasConnected ? '/drive/disconnect' : '/drive/connect', { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Drive action failed.');
+      } catch (err) {
+        driveStatusText.textContent = err.message || String(err);
+      } finally {
+        driveBtn.disabled = false;
+        refreshDriveStatus();
+      }
+    });
+
+    refreshDriveStatus();
+
     // --- convert ---
     convertBtn.addEventListener('click', async () => {
       clearStatus();
       resultEl.classList.remove('show');
+      driveLinkEl.style.display = 'none';
 
       const text = textEl.value.trim();
-      if (!currentFile && !text) {
-        showError('Paste some text or add a PDF/TXT file first.');
+      if (!currentFile && !currentBookFile && !text) {
+        showError('Search for a book, add a PDF/TXT file, or paste some text first.');
         return;
       }
 
@@ -263,7 +475,9 @@
       fd.append('lang', langEl.value);
       fd.append('filename', filenameEl.value || 'audiobook');
       if (currentFile) fd.append('file', currentFile);
+      else if (currentBookFile) fd.append('book_file', currentBookFile);
       else fd.append('text', text);
+      if (driveUploadEl.checked) fd.append('upload_to_drive', '1');
 
       convertBtn.disabled = true;
       const label = convertBtn.textContent;
@@ -295,6 +509,11 @@
         resultEl.classList.add('show');
         statusEl.textContent = '✓ Done: ' + fname;
         statusEl.className = 'status ok';
+
+        const dlink = res.headers.get('X-Drive-Link');
+        const derr = res.headers.get('X-Drive-Error');
+        if (dlink) { driveLinkEl.href = dlink; driveLinkEl.style.display = 'inline-block'; }
+        if (derr) statusEl.textContent += '  — Drive upload failed: ' + derr;
 
         // Auto-trigger the download too.
         downloadEl.click();

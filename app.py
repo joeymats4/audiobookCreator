@@ -75,8 +75,8 @@ def convert():
         # Surface the common "missing dependency" case more clearly.
         if "ModuleNotFoundError" in detail or "No module named" in detail:
             detail += "\n\nA required package isn't installed. Re-run run.bat, or: pip install -r requirements.txt"
-        if "ffmpeg" in detail.lower():
-            detail += "\n\nThe online (gTTS) engine needs ffmpeg on your PATH. Use the Offline engine, or install ffmpeg."
+        if engine == "gtts" and any(k in detail.lower() for k in ("urlopen", "connection", "timed out", "getaddrinfo", "network")):
+            detail += "\n\nThe online (gTTS) engine needs an internet connection. Switch to the Offline engine to work without internet."
         return jsonify(error=detail), 500
 
     return send_file(output_path, as_attachment=True, download_name=out_base + out_ext)

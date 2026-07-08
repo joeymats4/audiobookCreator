@@ -25,33 +25,12 @@ def clean_text(text):
     return text.strip()
 
 
-def chunk_text(text, size=4500):
-    words, chunks, cur = text.split(), [], ""
-    for w in words:
-        if len(cur) + len(w) + 1 > size:
-            chunks.append(cur)
-            cur = w
-        else:
-            cur = f"{cur} {w}".strip()
-    if cur:
-        chunks.append(cur)
-    return chunks
-
-
 def synthesize(text, out_path, engine="gtts", lang="en", voice=None, rate=175):
     if engine == "gtts":
         from gtts import gTTS
-        from pydub import AudioSegment
-        parts = []
-        for i, chunk in enumerate(chunk_text(text)):
-            tmp = f"{out_path}.part{i}.mp3"
-            gTTS(text=chunk, lang=lang).save(tmp)
-            parts.append(tmp)
-        combined = AudioSegment.empty()
-        for p in parts:
-            combined += AudioSegment.from_mp3(p)
-            os.remove(p)
-        combined.export(out_path, format="mp3")
+        # gTTS splits long text into fragments internally and writes them to a
+        # single concatenated MP3, so no ffmpeg/pydub stitching is needed.
+        gTTS(text=text, lang=lang).save(out_path)
     elif engine == "pyttsx3":
         import pyttsx3
         eng = pyttsx3.init()

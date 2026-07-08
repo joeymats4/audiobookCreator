@@ -1,0 +1,13 @@
+# Normalize text files to LF in the repository, native on checkout.
+* text=auto
+
+# Shell scripts must stay LF everywhere — CRLF breaks them on macOS/Linux.
+*.sh text eol=lf
+
+# Windows batch files stay CRLF.
+*.bat text eol=crlf
+
+# Binary assets: never touch line endings.
+*.mp3 binary
+*.wav binary
+*.pdf binary

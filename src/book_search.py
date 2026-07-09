@@ -12,6 +12,7 @@ arbitrary caller-supplied URL.
 
 import os
 import re
+from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import quote
 
 import requests
@@ -42,8 +43,14 @@ def search(query, limit=20):
     if not query:
         return []
 
-    gutenberg = _search_gutenberg(query, limit)
-    archive = _search_archive(query, limit)
+    # Query both catalogs in parallel — latency is max() of the two round
+    # trips instead of their sum, which matters for search-as-you-type.
+    # (Each helper swallows its own errors and returns [].)
+    with ThreadPoolExecutor(max_workers=2) as ex:
+        f_gut = ex.submit(_search_gutenberg, query, limit)
+        f_arc = ex.submit(_search_archive, query, limit)
+        gutenberg = f_gut.result()
+        archive = f_arc.result()
 
     # Interleave so both sources are represented, then trim to `limit`.
     merged = []

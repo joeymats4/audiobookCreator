@@ -189,7 +189,7 @@
     <div class="card">
       <div class="section-head">🔎 Find a book <span class="muted-note">public-domain · free &amp; legal</span></div>
       <div class="searchbar">
-        <input id="searchInput" type="text" placeholder="Search by title or author… e.g. Frankenstein" />
+        <input id="searchInput" type="text" placeholder="Start typing a title or author… e.g. Frankenstein" />
         <button id="searchBtn" class="btn inline">Search</button>
       </div>
       <div id="searchStatus" class="status"></div>
@@ -428,25 +428,39 @@
     }
     textEl.addEventListener('input', updateEstimate);
 
-    // ---------- book search ----------
-    async function doSearch() {
+    // ---------- book search (live: fires as you type) ----------
+    let searchSeq = 0;        // stale-response guard
+    let searchAbort = null;   // cancels the in-flight request
+    let searchTimer = null;   // debounce
+    let lastQuery = '';
+
+    async function doSearch(force = false) {
       const q = searchInput.value.trim();
-      if (!q) return;
-      resultsEl.innerHTML = '';
+      if (!q) {
+        resultsEl.innerHTML = '';
+        searchStatus.textContent = '';
+        searchStatus.className = 'status';
+        lastQuery = '';
+        return;
+      }
+      if (!force && q === lastQuery) return;  // same query — nothing to do
+      lastQuery = q;
+      const seq = ++searchSeq;
+      if (searchAbort) searchAbort.abort();
+      searchAbort = new AbortController();
       searchStatus.textContent = 'Searching…';
       searchStatus.className = 'status';
-      searchBtn.disabled = true;
       try {
-        const res = await fetch('/search?q=' + encodeURIComponent(q));
+        const res = await fetch('/search?q=' + encodeURIComponent(q), { signal: searchAbort.signal });
         const data = await res.json();
+        if (seq !== searchSeq) return;  // a newer search superseded this one
         if (!res.ok) throw new Error(data.error || 'Search failed.');
         renderResults(data.results || []);
         searchStatus.textContent = (data.results || []).length ? '' : 'No public-domain matches found.';
       } catch (err) {
+        if (err.name === 'AbortError' || seq !== searchSeq) return;
         searchStatus.textContent = err.message || String(err);
         searchStatus.className = 'status err';
-      } finally {
-        searchBtn.disabled = false;
       }
     }
 
@@ -506,8 +520,19 @@
       }
     }
 
-    searchBtn.addEventListener('click', doSearch);
-    searchInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') doSearch(); });
+    // Live search: after a short pause in typing (3+ chars). The button and
+    // Enter still force an immediate search (works for short queries too).
+    searchInput.addEventListener('input', () => {
+      clearTimeout(searchTimer);
+      const q = searchInput.value.trim();
+      if (!q) { doSearch(); return; }          // cleared — empty the results now
+      if (q.length < 3) return;                // too short to hit the catalogs
+      searchTimer = setTimeout(doSearch, 450);
+    });
+    searchBtn.addEventListener('click', () => { clearTimeout(searchTimer); doSearch(true); });
+    searchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { clearTimeout(searchTimer); doSearch(true); }
+    });
 
     // ---------- google drive ----------
     let driveConnected = false;

@@ -48,7 +48,14 @@ def connect():
         )
     _, InstalledAppFlow, _, _, _ = _load_google()
     flow = InstalledAppFlow.from_client_secrets_file(CLIENT_SECRET, SCOPES)
-    creds = flow.run_local_server(port=0)  # opens the browser on its own random port
+    try:
+        # Opens the browser on its own random port. timeout_seconds keeps an
+        # abandoned consent page from parking a server thread forever.
+        creds = flow.run_local_server(port=0, timeout_seconds=300)
+    except Exception as e:
+        raise DriveError(
+            "Google sign-in didn't complete (timed out or was cancelled). Try again."
+        ) from e
     _save(creds)
     return True
 

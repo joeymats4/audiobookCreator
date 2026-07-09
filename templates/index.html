@@ -38,7 +38,10 @@
       border-radius: 16px;
       padding: 22px;
       box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+      margin-bottom: 18px;
     }
+    .section-head { font-size: 16px; font-weight: 700; margin-bottom: 14px; }
+    .muted-note { font-size: 11.5px; color: var(--muted); font-weight: 500; margin-left: 6px; }
     .drop {
       border: 2px dashed var(--line);
       border-radius: 12px;
@@ -89,6 +92,8 @@
       border: 1px solid var(--line); border-radius: 10px;
       padding: 10px 12px; font-size: 14px; font-family: inherit;
     }
+    input[type=range] { width: 100%; accent-color: var(--accent); }
+    .estimate { font-size: 12.5px; color: var(--muted); margin-top: 10px; min-height: 16px; }
     .btn {
       width: 100%; margin-top: 20px; padding: 14px;
       border: none; border-radius: 12px; cursor: pointer;
@@ -99,6 +104,13 @@
     .btn:hover { opacity: .93; }
     .btn:active { transform: translateY(1px); }
     .btn:disabled { opacity: .55; cursor: default; }
+    .btn.secondary {
+      background: var(--card-2); color: var(--text); border: 1px solid var(--line);
+      font-weight: 600;
+    }
+    .btn-row { display: flex; gap: 12px; }
+    .btn-row .btn { margin-top: 20px; }
+    .btn-row .btn.secondary { flex: 0 0 130px; }
     .status { margin-top: 16px; font-size: 13.5px; min-height: 18px; white-space: pre-wrap; }
     .status.err { color: var(--danger); }
     .status.ok { color: var(--ok); }
@@ -108,6 +120,14 @@
       border-radius: 50%; animation: spin .7s linear infinite; vertical-align: -2px;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
+    .progress-panel { display: none; margin-top: 18px; padding: 16px; background: var(--card-2); border: 1px solid var(--line); border-radius: 12px; }
+    .progress-panel.show { display: block; }
+    .progress-head { display: flex; justify-content: space-between; align-items: center; font-size: 13.5px; font-weight: 600; margin-bottom: 10px; }
+    .progress-cancel { background: transparent; border: 1px solid var(--line); color: var(--danger); border-radius: 8px; padding: 5px 12px; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+    .progress-cancel:hover { border-color: var(--danger); }
+    .bar { height: 10px; background: #1a2038; border-radius: 6px; overflow: hidden; }
+    .bar-fill { height: 100%; width: 0%; border-radius: 6px; background: linear-gradient(90deg, var(--accent), var(--accent-2)); transition: width .5s ease; }
+    .progress-meta { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-top: 8px; }
     .result { display: none; margin-top: 18px; padding: 16px; background: var(--card-2); border: 1px solid var(--line); border-radius: 12px; }
     .result.show { display: block; }
     .result audio { width: 100%; margin-bottom: 12px; }
@@ -118,8 +138,6 @@
     .foot { text-align: center; color: var(--muted); font-size: 12px; margin-top: 18px; }
 
     /* --- book search --- */
-    .section-head { font-size: 16px; font-weight: 700; margin-bottom: 14px; }
-    .muted-note { font-size: 11.5px; color: var(--muted); font-weight: 500; margin-left: 6px; }
     .searchbar { display: flex; gap: 10px; }
     .searchbar input { flex: 1; }
     .btn.inline { width: auto; margin-top: 0; padding: 12px 20px; }
@@ -145,16 +163,30 @@
     .drive-check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text); margin-top: 10px; }
     .drive-check.disabled { opacity: .45; }
     .drive-link { display: inline-block; margin-left: 12px; color: var(--accent); font-size: 13px; text-decoration: none; font-weight: 600; }
+
+    /* --- library --- */
+    .lib-player { width: 100%; margin-bottom: 12px; display: none; }
+    .lib-player.show { display: block; }
+    .lib-list { display: flex; flex-direction: column; gap: 8px; }
+    .lib-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--card-2); border: 1px solid var(--line); border-radius: 10px; }
+    .lib-info { flex: 1; min-width: 0; }
+    .lib-title { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .lib-meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .lib-btn { background: transparent; border: 1px solid var(--line); color: var(--text); border-radius: 8px; padding: 6px 10px; font-size: 12.5px; cursor: pointer; }
+    .lib-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .lib-btn.del:hover { border-color: var(--danger); color: var(--danger); }
+    .lib-empty { color: var(--muted); font-size: 13px; }
+    a.lib-btn { text-decoration: none; display: inline-block; }
   </style>
 </head>
 <body>
   <div class="wrap">
     <header>
       <h1>🎧 Audiobook Creator</h1>
-      <p class="sub">Paste text or drop a PDF / TXT file and get an audio file back.</p>
+      <p class="sub">Search a book, drop a PDF / TXT, or paste text — get an audiobook back.</p>
     </header>
 
-    <div class="card" style="margin-bottom: 18px;">
+    <div class="card">
       <div class="section-head">🔎 Find a book <span class="muted-note">public-domain · free &amp; legal</span></div>
       <div class="searchbar">
         <input id="searchInput" type="text" placeholder="Search by title or author… e.g. Frankenstein" />
@@ -190,11 +222,11 @@
             <option value="gtts">Online — nicer voice (needs internet)</option>
           </select>
         </div>
-        <div class="field">
-          <label for="lang">Language <span style="opacity:.7">(online only)</span></label>
+        <div class="field" id="langField" style="display:none;">
+          <label for="lang">Language</label>
           <select id="lang">
             <option value="en" selected>English</option>
-            <option value="en-uk">English (UK)</option>
+            <option value="en-uk">English (UK accent)</option>
             <option value="es">Spanish</option>
             <option value="fr">French</option>
             <option value="de">German</option>
@@ -207,11 +239,21 @@
             <option value="zh-CN">Chinese</option>
           </select>
         </div>
+        <div class="field" id="voiceField">
+          <label for="voice">Voice</label>
+          <select id="voice"><option value="">System default</option></select>
+        </div>
+        <div class="field" id="rateField">
+          <label for="rate">Speed — <span id="rateVal">175</span> wpm</label>
+          <input id="rate" type="range" min="120" max="260" step="5" value="175" />
+        </div>
         <div class="field full">
           <label for="filename">Output file name</label>
           <input id="filename" type="text" value="audiobook" />
         </div>
       </div>
+
+      <div id="estimate" class="estimate"></div>
 
       <div class="drive" id="drivePanel">
         <div class="drive-head">
@@ -224,7 +266,22 @@
         </label>
       </div>
 
-      <button id="convert" class="btn">Create audiobook</button>
+      <div class="btn-row">
+        <button id="preview" class="btn secondary" title="Hear the first few sentences with the current voice">▶ Preview</button>
+        <button id="convert" class="btn">Create audiobook</button>
+      </div>
+
+      <div id="progressPanel" class="progress-panel">
+        <div class="progress-head">
+          <span id="progressPhase">Starting…</span>
+          <button id="cancelBtn" class="progress-cancel">Cancel</button>
+        </div>
+        <div class="bar"><div id="barFill" class="bar-fill"></div></div>
+        <div class="progress-meta">
+          <span id="progressChunks"></span>
+          <span id="progressEst"></span>
+        </div>
+      </div>
 
       <div id="status" class="status"></div>
 
@@ -235,41 +292,60 @@
       </div>
     </div>
 
+    <div class="card">
+      <div class="section-head">📚 Library <span class="muted-note">finished audiobooks stay here</span></div>
+      <audio id="libPlayer" class="lib-player" controls></audio>
+      <div id="libList" class="lib-list"><span class="lib-empty">Nothing here yet — create your first audiobook above.</span></div>
+    </div>
+
     <p class="foot">Runs locally on your machine. Long books can take a while to synthesize.</p>
   </div>
 
   <script>
-    const drop = document.getElementById('drop');
-    const fileInput = document.getElementById('fileInput');
-    const chip = document.getElementById('chip');
-    const chipName = document.getElementById('chipName');
-    const chipRemove = document.getElementById('chipRemove');
-    const textEl = document.getElementById('text');
-    const engineEl = document.getElementById('engine');
-    const langEl = document.getElementById('lang');
-    const filenameEl = document.getElementById('filename');
-    const convertBtn = document.getElementById('convert');
-    const statusEl = document.getElementById('status');
-    const resultEl = document.getElementById('result');
-    const playerEl = document.getElementById('player');
-    const downloadEl = document.getElementById('download');
-    const searchInput = document.getElementById('searchInput');
-    const searchBtn = document.getElementById('searchBtn');
-    const searchStatus = document.getElementById('searchStatus');
-    const resultsEl = document.getElementById('results');
-    const converterEl = document.getElementById('converter');
-    const driveBtn = document.getElementById('driveBtn');
-    const driveStatusText = document.getElementById('driveStatusText');
-    const driveCheckWrap = document.getElementById('driveCheckWrap');
-    const driveUploadEl = document.getElementById('driveUpload');
-    const driveLinkEl = document.getElementById('driveLink');
+    const $ = (id) => document.getElementById(id);
+    const drop = $('drop'), fileInput = $('fileInput');
+    const chip = $('chip'), chipName = $('chipName'), chipRemove = $('chipRemove');
+    const textEl = $('text'), engineEl = $('engine'), langEl = $('lang');
+    const voiceEl = $('voice'), rateEl = $('rate'), rateVal = $('rateVal');
+    const langField = $('langField'), voiceField = $('voiceField'), rateField = $('rateField');
+    const filenameEl = $('filename'), estimateEl = $('estimate');
+    const previewBtn = $('preview'), convertBtn = $('convert');
+    const statusEl = $('status'), resultEl = $('result');
+    const playerEl = $('player'), downloadEl = $('download'), driveLinkEl = $('driveLink');
+    const progressPanel = $('progressPanel'), progressPhase = $('progressPhase');
+    const barFill = $('barFill'), progressChunks = $('progressChunks'), progressEst = $('progressEst');
+    const cancelBtn = $('cancelBtn');
+    const searchInput = $('searchInput'), searchBtn = $('searchBtn');
+    const searchStatus = $('searchStatus'), resultsEl = $('results');
+    const converterEl = $('converter');
+    const driveBtn = $('driveBtn'), driveStatusText = $('driveStatusText');
+    const driveCheckWrap = $('driveCheckWrap'), driveUploadEl = $('driveUpload');
+    const libList = $('libList'), libPlayer = $('libPlayer');
 
     let currentFile = null;
     let currentBookFile = null;
+    let currentJobId = null;
     const ALLOWED = ['.pdf', '.txt'];
 
+    // ---------- small helpers ----------
     function ext(name) { return name.slice(name.lastIndexOf('.')).toLowerCase(); }
+    function sanitizeName(s) {
+      return (s || 'audiobook').replace(/[^\w \-]+/g, '').replace(/\s+/g, ' ').trim().slice(0, 80) || 'audiobook';
+    }
+    function fmtDuration(sec) {
+      if (!sec || sec < 60) return '< 1 min';
+      const h = Math.floor(sec / 3600), m = Math.round((sec % 3600) / 60);
+      return h ? `${h} h ${m} m` : `${m} min`;
+    }
+    function fmtSize(bytes) {
+      if (!bytes) return '';
+      const mb = bytes / (1024 * 1024);
+      return mb >= 1 ? mb.toFixed(1) + ' MB' : Math.round(bytes / 1024) + ' KB';
+    }
+    function showError(msg) { statusEl.textContent = msg; statusEl.className = 'status err'; }
+    function clearStatus() { statusEl.textContent = ''; statusEl.className = 'status'; }
 
+    // ---------- input state ----------
     function setFile(file) {
       if (!file) return;
       if (!ALLOWED.includes(ext(file.name))) {
@@ -280,28 +356,32 @@
       currentBookFile = null;
       chipName.textContent = file.name;
       chip.classList.add('show');
+      filenameEl.value = sanitizeName(file.name.replace(/\.[^.]+$/, ''));
       clearStatus();
+      updateEstimate();
     }
-
     function clearFile() {
       currentFile = null;
       currentBookFile = null;
       fileInput.value = '';
       chip.classList.remove('show');
+      updateEstimate();
+    }
+    function loadBook(filename, title) {
+      currentFile = null;
+      fileInput.value = '';
+      currentBookFile = filename;
+      chipName.textContent = title + '  (from search)';
+      chip.classList.add('show');
+      filenameEl.value = sanitizeName(title);
+      clearStatus();
+      updateEstimate();
+      converterEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
-    function showError(msg) {
-      statusEl.textContent = msg;
-      statusEl.className = 'status err';
-    }
-    function clearStatus() { statusEl.textContent = ''; statusEl.className = 'status'; }
-
-    // --- file picking ---
     drop.addEventListener('click', () => fileInput.click());
     fileInput.addEventListener('change', (e) => setFile(e.target.files[0]));
     chipRemove.addEventListener('click', (e) => { e.stopPropagation(); clearFile(); });
-
-    // --- drag & drop ---
     ['dragenter', 'dragover'].forEach(ev =>
       drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add('drag'); }));
     ['dragleave', 'dragend', 'drop'].forEach(ev =>
@@ -311,22 +391,44 @@
       if (f) setFile(f);
     });
 
-    // --- book search ---
-    function sanitizeName(s) {
-      return (s || 'audiobook').replace(/[^\w \-]+/g, '').replace(/\s+/g, ' ').trim().slice(0, 80) || 'audiobook';
+    // ---------- engine / voices / estimate ----------
+    function syncEngineFields() {
+      const online = engineEl.value === 'gtts';
+      langField.style.display = online ? '' : 'none';
+      voiceField.style.display = online ? 'none' : '';
+      rateField.style.display = online ? 'none' : '';
+      updateEstimate();
+    }
+    engineEl.addEventListener('change', syncEngineFields);
+    rateEl.addEventListener('input', () => { rateVal.textContent = rateEl.value; updateEstimate(); });
+
+    async function loadVoices() {
+      try {
+        const res = await fetch('/voices');
+        const data = await res.json();
+        for (const v of (data.voices || [])) {
+          const opt = document.createElement('option');
+          opt.value = v.id;
+          opt.textContent = v.name;
+          voiceEl.appendChild(opt);
+        }
+      } catch (e) { /* voice list is optional */ }
     }
 
-    function loadBook(filename, title) {
-      currentFile = null;
-      fileInput.value = '';
-      currentBookFile = filename;
-      chipName.textContent = title + '  (from search)';
-      chip.classList.add('show');
-      filenameEl.value = sanitizeName(title);
-      clearStatus();
-      converterEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    function updateEstimate() {
+      const text = textEl.value.trim();
+      if (currentFile || currentBookFile) {
+        estimateEl.textContent = 'Audio length will be estimated when conversion starts.';
+        return;
+      }
+      if (!text) { estimateEl.textContent = ''; return; }
+      const words = text.split(/\s+/).length;
+      const wpm = engineEl.value === 'pyttsx3' ? parseInt(rateEl.value, 10) : 170;
+      estimateEl.textContent = `${words.toLocaleString()} words ≈ ${fmtDuration(words / wpm * 60)} of audio`;
     }
+    textEl.addEventListener('input', updateEstimate);
 
+    // ---------- book search ----------
     async function doSearch() {
       const q = searchInput.value.trim();
       if (!q) return;
@@ -339,7 +441,7 @@
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Search failed.');
         renderResults(data.results || []);
-        if (!(data.results || []).length) searchStatus.textContent = 'No public-domain matches found.';
+        searchStatus.textContent = (data.results || []).length ? '' : 'No public-domain matches found.';
       } catch (err) {
         searchStatus.textContent = err.message || String(err);
         searchStatus.className = 'status err';
@@ -353,7 +455,6 @@
       for (const r of list) {
         const row = document.createElement('div');
         row.className = 'book';
-
         const info = document.createElement('div');
         info.className = 'book-info';
         const t = document.createElement('div');
@@ -372,12 +473,10 @@
         meta.appendChild(document.createTextNode(bits.join(' · ')));
         info.appendChild(t);
         info.appendChild(meta);
-
         const btn = document.createElement('button');
         btn.className = 'book-use';
         btn.textContent = 'Use';
         btn.addEventListener('click', () => useBook(r, btn));
-
         row.appendChild(info);
         row.appendChild(btn);
         resultsEl.appendChild(row);
@@ -410,7 +509,7 @@
     searchBtn.addEventListener('click', doSearch);
     searchInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') doSearch(); });
 
-    // --- google drive ---
+    // ---------- google drive ----------
     let driveConnected = false;
 
     async function refreshDriveStatus() {
@@ -456,74 +555,250 @@
       }
     });
 
-    refreshDriveStatus();
+    // ---------- convert (job-based) ----------
+    function buildFormData() {
+      const fd = new FormData();
+      fd.append('engine', engineEl.value);
+      fd.append('lang', langEl.value);
+      fd.append('voice', voiceEl.value);
+      fd.append('rate', rateEl.value);
+      fd.append('filename', filenameEl.value || 'audiobook');
+      if (currentFile) fd.append('file', currentFile);
+      else if (currentBookFile) fd.append('book_file', currentBookFile);
+      else fd.append('text', textEl.value.trim());
+      return fd;
+    }
 
-    // --- convert ---
+    function hasInput() {
+      return currentFile || currentBookFile || textEl.value.trim();
+    }
+
+    function setBusy(busy) {
+      convertBtn.disabled = busy;
+      previewBtn.disabled = busy;
+    }
+
+    function showProgress(job) {
+      progressPanel.classList.add('show');
+      progressPhase.textContent = job.phase || '…';
+      const pct = job.state === 'uploading' || job.state === 'done' ? 100 : (job.percent || 0);
+      barFill.style.width = pct + '%';
+      progressChunks.textContent = job.total ? `chunk ${job.done}/${job.total} · ${pct}%` : '';
+      progressEst.textContent = job.est_seconds ? `≈ ${fmtDuration(job.est_seconds)} of audio` : '';
+    }
+    function hideProgress() { progressPanel.classList.remove('show'); }
+
+    const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+    async function pollJob(jobId) {
+      while (true) {
+        let job;
+        try {
+          const res = await fetch('/jobs/' + jobId);
+          job = await res.json();
+          if (!res.ok) throw new Error(job.error || 'Job lost.');
+        } catch (err) {
+          throw new Error('Lost contact with the job: ' + (err.message || err));
+        }
+        showProgress(job);
+        if (['done', 'error', 'cancelled'].includes(job.state)) return job;
+        await sleep(1200);
+      }
+    }
+
     convertBtn.addEventListener('click', async () => {
       clearStatus();
       resultEl.classList.remove('show');
       driveLinkEl.style.display = 'none';
-
-      const text = textEl.value.trim();
-      if (!currentFile && !currentBookFile && !text) {
+      if (!hasInput()) {
         showError('Search for a book, add a PDF/TXT file, or paste some text first.');
         return;
       }
-
-      const fd = new FormData();
-      fd.append('engine', engineEl.value);
-      fd.append('lang', langEl.value);
-      fd.append('filename', filenameEl.value || 'audiobook');
-      if (currentFile) fd.append('file', currentFile);
-      else if (currentBookFile) fd.append('book_file', currentBookFile);
-      else fd.append('text', text);
+      const fd = buildFormData();
       if (driveUploadEl.checked) fd.append('upload_to_drive', '1');
 
-      convertBtn.disabled = true;
-      const label = convertBtn.textContent;
-      convertBtn.innerHTML = '<span class="spinner"></span>Synthesizing…';
-      statusEl.textContent = 'Working on it — this can take a while for long text.';
-      statusEl.className = 'status';
-
+      setBusy(true);
+      convertBtn.innerHTML = '<span class="spinner"></span>Working…';
       try {
         const res = await fetch('/convert', { method: 'POST', body: fd });
-        const ct = res.headers.get('content-type') || '';
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Could not start the conversion.');
+        currentJobId = data.job_id;
+        showProgress({ phase: 'Starting…', percent: 0 });
 
+        const job = await pollJob(currentJobId);
+        currentJobId = null;
+        hideProgress();
+
+        if (job.state === 'cancelled') {
+          statusEl.textContent = 'Conversion cancelled.';
+          statusEl.className = 'status';
+          return;
+        }
+        if (job.state === 'error') {
+          showError(job.error || 'Conversion failed.');
+          return;
+        }
+
+        // done
+        const fileUrl = '/library/file/' + encodeURIComponent(job.filename);
+        playerEl.src = fileUrl;
+        downloadEl.href = fileUrl;
+        downloadEl.setAttribute('download', job.filename);
+        resultEl.classList.add('show');
+        let msg = '✓ Done: ' + job.filename;
+        if (job.drive_link) {
+          driveLinkEl.href = job.drive_link;
+          driveLinkEl.style.display = 'inline-block';
+        }
+        if (job.drive_error) msg += '\nDrive upload failed: ' + job.drive_error;
+        statusEl.textContent = msg;
+        statusEl.className = job.drive_error ? 'status err' : 'status ok';
+        downloadEl.click();  // auto-download
+        loadLibrary();
+      } catch (err) {
+        hideProgress();
+        currentJobId = null;
+        showError(err.message || String(err));
+      } finally {
+        setBusy(false);
+        convertBtn.textContent = 'Create audiobook';
+      }
+    });
+
+    cancelBtn.addEventListener('click', async () => {
+      if (!currentJobId) return;
+      cancelBtn.disabled = true;
+      try { await fetch('/jobs/' + currentJobId + '/cancel', { method: 'POST' }); }
+      catch (e) { /* polling will surface the state */ }
+      finally { cancelBtn.disabled = false; }
+    });
+
+    // ---------- preview ----------
+    previewBtn.addEventListener('click', async () => {
+      clearStatus();
+      if (!hasInput()) {
+        showError('Add some text, a file, or a book first — preview reads its opening lines.');
+        return;
+      }
+      setBusy(true);
+      const label = previewBtn.textContent;
+      previewBtn.innerHTML = '<span class="spinner"></span>…';
+      try {
+        const res = await fetch('/preview', { method: 'POST', body: buildFormData() });
+        const ct = res.headers.get('content-type') || '';
         if (ct.includes('application/json')) {
           const data = await res.json();
-          throw new Error(data.error || 'Conversion failed.');
+          throw new Error(data.error || 'Preview failed.');
         }
-        if (!res.ok) throw new Error('Conversion failed (HTTP ' + res.status + ').');
-
-        // Figure out the download filename from the response, with a fallback.
-        let fname = (filenameEl.value || 'audiobook');
-        const cd = res.headers.get('content-disposition') || '';
-        const m = cd.match(/filename\*?=(?:UTF-8'')?"?([^"';]+)"?/i);
-        if (m) fname = decodeURIComponent(m[1]);
-
+        if (!res.ok) throw new Error('Preview failed (HTTP ' + res.status + ').');
         const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        playerEl.src = url;
-        downloadEl.href = url;
-        downloadEl.setAttribute('download', fname);
+        playerEl.src = URL.createObjectURL(blob);
         resultEl.classList.add('show');
-        statusEl.textContent = '✓ Done: ' + fname;
-        statusEl.className = 'status ok';
-
-        const dlink = res.headers.get('X-Drive-Link');
-        const derr = res.headers.get('X-Drive-Error');
-        if (dlink) { driveLinkEl.href = dlink; driveLinkEl.style.display = 'inline-block'; }
-        if (derr) statusEl.textContent += '  — Drive upload failed: ' + derr;
-
-        // Auto-trigger the download too.
-        downloadEl.click();
+        driveLinkEl.style.display = 'none';
+        downloadEl.removeAttribute('href');
+        statusEl.textContent = 'Preview — first few sentences with the current voice.';
+        statusEl.className = 'status';
+        playerEl.play();
       } catch (err) {
         showError(err.message || String(err));
       } finally {
-        convertBtn.disabled = false;
-        convertBtn.textContent = label;
+        setBusy(false);
+        previewBtn.textContent = label;
       }
     });
+
+    // ---------- library ----------
+    async function loadLibrary() {
+      let items = [];
+      try {
+        const res = await fetch('/library');
+        const data = await res.json();
+        items = data.items || [];
+      } catch (e) { return; }
+
+      libList.innerHTML = '';
+      if (!items.length) {
+        const empty = document.createElement('span');
+        empty.className = 'lib-empty';
+        empty.textContent = 'Nothing here yet — create your first audiobook above.';
+        libList.appendChild(empty);
+        return;
+      }
+      for (const it of items) {
+        const row = document.createElement('div');
+        row.className = 'lib-item';
+
+        const info = document.createElement('div');
+        info.className = 'lib-info';
+        const t = document.createElement('div');
+        t.className = 'lib-title';
+        t.textContent = it.title || it.filename;
+        const meta = document.createElement('div');
+        meta.className = 'lib-meta';
+        const bits = [];
+        bits.push(it.engine === 'gtts' ? 'Online voice' : 'Offline voice');
+        if (it.est_seconds) bits.push('≈ ' + fmtDuration(it.est_seconds));
+        if (it.size) bits.push(fmtSize(it.size));
+        if (it.created) bits.push(new Date(it.created * 1000).toLocaleDateString());
+        meta.textContent = bits.join(' · ');
+        info.appendChild(t);
+        info.appendChild(meta);
+        row.appendChild(info);
+
+        const fileUrl = '/library/file/' + encodeURIComponent(it.filename);
+
+        const play = document.createElement('button');
+        play.className = 'lib-btn';
+        play.textContent = '▶ Play';
+        play.addEventListener('click', () => {
+          libPlayer.src = fileUrl;
+          libPlayer.classList.add('show');
+          libPlayer.play();
+        });
+        row.appendChild(play);
+
+        const dl = document.createElement('a');
+        dl.className = 'lib-btn';
+        dl.textContent = '⬇';
+        dl.title = 'Download';
+        dl.href = fileUrl;
+        dl.setAttribute('download', it.filename);
+        row.appendChild(dl);
+
+        if (it.drive_link) {
+          const gl = document.createElement('a');
+          gl.className = 'lib-btn';
+          gl.textContent = '☁';
+          gl.title = 'View in Google Drive';
+          gl.href = it.drive_link;
+          gl.target = '_blank';
+          gl.rel = 'noopener';
+          row.appendChild(gl);
+        }
+
+        const del = document.createElement('button');
+        del.className = 'lib-btn del';
+        del.textContent = '✕';
+        del.title = 'Delete';
+        del.addEventListener('click', async () => {
+          if (!confirm('Delete "' + (it.title || it.filename) + '"?')) return;
+          const fd = new FormData();
+          fd.append('name', it.filename);
+          try { await fetch('/library/delete', { method: 'POST', body: fd }); } catch (e) {}
+          loadLibrary();
+        });
+        row.appendChild(del);
+
+        libList.appendChild(row);
+      }
+    }
+
+    // ---------- init ----------
+    syncEngineFields();
+    loadVoices();
+    refreshDriveStatus();
+    loadLibrary();
   </script>
 </body>
 </html>

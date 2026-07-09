@@ -110,7 +110,7 @@ def _search_archive(query, limit):
             "title": _as_text(d.get("title")) or ident,
             "author": _as_text(d.get("creator")),
             "year": _as_text(d.get("year")),
-            "kind": "pdf",
+            "kind": "text",  # we prefer IA's OCR full text over the PDF
         })
     return out
 
@@ -146,9 +146,11 @@ def _download_gutenberg(book_id, dest_dir):
     if not url:
         raise ValueError("No plain-text edition is available for this book.")
 
+    # Gutenberg texts are small (~1 MB); buffering is fine and the boilerplate
+    # strip needs the whole text anyway.
     raw = _download_bytes(url).decode("utf-8", errors="ignore")
     text = _strip_gutenberg_boilerplate(raw)
-    base = _safe_name(book.get("title") or f"gutenberg-{book_id}")
+    base = _file_base("gutenberg", book_id, book.get("title"))
     filename = base + ".txt"
     path = os.path.join(dest_dir, filename)
     with open(path, "w", encoding="utf-8") as f:
@@ -172,21 +174,25 @@ def _download_archive(book_id, dest_dir):
         raise ValueError("This item is lending-only and can't be downloaded.")
 
     pdf_name, txt_name = _archive_candidates(meta.get("files", []))
-    base = _safe_name(_as_text(meta.get("metadata", {}).get("title")) or book_id)
+    base = _file_base("archive", book_id, _as_text(meta.get("metadata", {}).get("title")))
 
-    # Prefer the PDF; fall back to full text if the PDF is over the size cap.
+    # Prefer IA's OCR full text: it always extracts (image-only PDFs don't),
+    # is far smaller, and reads more cleanly for TTS. PDF is the fallback.
+    if txt_name:
+        path, filename = _stream_to_file(
+            f"https://archive.org/download/{quote(str(book_id))}/{quote(txt_name)}",
+            dest_dir, base, ".txt")
+        return path, filename, ".txt"
     if pdf_name:
         try:
-            data = _download_bytes(f"https://archive.org/download/{quote(str(book_id))}/{quote(pdf_name)}")
-            return _write_bytes(dest_dir, base, ".pdf", data)
+            path, filename = _stream_to_file(
+                f"https://archive.org/download/{quote(str(book_id))}/{quote(pdf_name)}",
+                dest_dir, base, ".pdf")
+            return path, filename, ".pdf"
         except DownloadTooLarge:
-            if not txt_name:
-                raise ValueError("The PDF is too large to download and no text version exists.")
-    if txt_name:
-        data = _download_bytes(f"https://archive.org/download/{quote(str(book_id))}/{quote(txt_name)}")
-        return _write_bytes(dest_dir, base, ".txt", data)
+            raise ValueError("The PDF is too large to download and no text version exists.")
 
-    raise ValueError("No downloadable PDF or text file for this item.")
+    raise ValueError("No downloadable text or PDF file for this item.")
 
 
 # --------------------------------------------------------------------------
@@ -218,7 +224,19 @@ def _archive_candidates(files):
     return pdf, txt
 
 
+def _file_base(source, book_id, title):
+    """Unique, human-readable filename base: '<source>-<id> <title>'.
+
+    The id prefix guarantees two different books never collide even when
+    their sanitized titles are identical.
+    """
+    ident = _safe_name(str(book_id), maxlen=40) or "book"
+    title_part = _safe_name(title or "", maxlen=60)
+    return f"{source}-{ident} {title_part}".strip()
+
+
 def _download_bytes(url):
+    """Buffer a (small) file in memory, size-capped. Use for Gutenberg texts."""
     with _session.get(url, timeout=TIMEOUT, stream=True) as r:
         r.raise_for_status()
         chunks, total = [], 0
@@ -232,12 +250,33 @@ def _download_bytes(url):
         return b"".join(chunks)
 
 
-def _write_bytes(dest_dir, base, ext, data):
+def _stream_to_file(url, dest_dir, base, ext):
+    """Stream a (possibly large) file straight to disk, size-capped.
+
+    Keeps memory flat at the chunk size; a partial file is removed on failure.
+    """
     filename = base + ext
     path = os.path.join(dest_dir, filename)
-    with open(path, "wb") as f:
-        f.write(data)
-    return path, filename, ext
+    total = 0
+    try:
+        with _session.get(url, timeout=TIMEOUT, stream=True) as r:
+            r.raise_for_status()
+            with open(path, "wb") as f:
+                for chunk in r.iter_content(chunk_size=65536):
+                    if not chunk:
+                        continue
+                    total += len(chunk)
+                    if total > MAX_DOWNLOAD_BYTES:
+                        raise DownloadTooLarge(
+                            f"File exceeds the {MAX_DOWNLOAD_BYTES // (1024 * 1024)} MB limit.")
+                    f.write(chunk)
+    except BaseException:
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+        raise
+    return path, filename
 
 
 def _strip_gutenberg_boilerplate(text):

@@ -12,8 +12,12 @@ Comes with a **basic web UI** and a command-line tool.
   - **Offline** (`pyttsx3`) — uses your system voices, no internet, no ffmpeg. Outputs WAV.
   - **Online** (`gtts`) — Google TTS, more natural voice. Needs an internet connection. Outputs MP3.
 - 🔎 **Find books**: search public-domain catalogs (Project Gutenberg + Internet Archive) and download a book straight into the converter
+- ⏳ **Background jobs with a live progress bar** — long books convert without freezing the page, and you can cancel mid-run
+- 🗣️ **Voice picker + preview** — choose any installed system voice, set the speed, and hear the opening lines before committing to a whole book
+- 📚 **Library** — finished audiobooks are kept in `outputs/` and listed in the app: play, download, or delete them any time
+- ⏱️ **Duration estimate** — see roughly how long the audio will be before you start
 - ☁️ **Google Drive** (optional): auto-upload the finished audiobook to your Drive
-- Chunks long text automatically
+- Chunks long text automatically (both engines), with per-chunk retry for the online engine
 
 ## Quick start (Web UI)
 
@@ -45,8 +49,12 @@ python app.py
 
 Then open <http://127.0.0.1:5000>.
 
-In the UI: drop a file **or** paste text, pick the voice engine, and click
-**Create audiobook**. The file downloads automatically and also plays inline.
+In the UI: search for a book, drop a file, **or** paste text; pick the voice
+engine (offline voices have a picker + speed slider — use **▶ Preview** to hear
+the opening lines first); then click **Create audiobook**. Conversion runs in
+the background with a progress bar and a Cancel button. When it finishes, the
+file auto-downloads, plays inline, and is kept in the **Library** section at
+the bottom of the page.
 
 ## Find books (public domain)
 
@@ -105,11 +113,15 @@ python src/pdf2audiobook.py libro.pdf -l es
 
 | Flag | Description |
 |------|-------------|
-| `-o, --output` | Output audio path (default: same name as input) |
+| `-o, --output` | Output audio path (default: input name + `.mp3` online / `.wav` offline) |
 | `-e, --engine` | `gtts` (default) or `pyttsx3` |
 | `-l, --lang` | Language code, gtts only (default `en`) |
-| `-v, --voice` | Voice id, pyttsx3 only |
+| `-t, --tld` | Google TTS accent domain, gtts only (e.g. `co.uk`) |
+| `-v, --voice` | Voice id, pyttsx3 only (`--list-voices` prints the installed ones) |
 | `-r, --rate` | Speech rate, pyttsx3 only (default 175) |
+| `--progress` | Print `TOTAL`/`PROGRESS` lines for a supervising process |
+| `--max-chars N` | Only synthesize the first N characters (previews) |
+| `--list-voices` | List installed offline voices and exit |
 
 ## Notes
 
@@ -125,11 +137,12 @@ python src/pdf2audiobook.py libro.pdf -l es
 ## Project layout
 
 ```
-app.py                 Flask web server (the UI backend)
-templates/index.html   The web UI (search · drag & drop · paste)
-src/pdf2audiobook.py   Core converter, also usable from the command line
+app.py                 Flask web server: conversion jobs, library, search, Drive
+templates/index.html   The web UI (search · drag & drop · paste · progress · library)
+src/pdf2audiobook.py   Core converter (chunked, progress-reporting), also a CLI
 src/book_search.py     Book search + download (Gutenberg + Internet Archive)
 src/drive.py           Optional Google Drive upload (OAuth)
+outputs/               Finished audiobooks (the Library) — created on first run
 requirements.txt       Python dependencies
 run.bat                One-click launcher for Windows
 run.sh                 One-click launcher for macOS / Linux
